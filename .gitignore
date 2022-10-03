@@ -1,0 +1,19 @@
+.vscode
+**/.DS_Store
+
+# Python build artifacts.
+**/__pycache__
+**/.ipynb_checkpoints
+
+# Rust build artifacts.
+target
+Cargo.lock
+
+# Terraform-related local state files.
+.env
+.terraform
+*terraform.tfstate*
+*.tfvars
+
+input
+output

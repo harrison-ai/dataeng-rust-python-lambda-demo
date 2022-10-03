@@ -1,0 +1,17 @@
+name: Run all the tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check formatting and other validation
+        run: make validate
+      - name: Run the test suite
+        run: make test
