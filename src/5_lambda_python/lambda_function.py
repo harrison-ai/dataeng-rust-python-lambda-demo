@@ -7,10 +7,7 @@ import boto3
 
 
 def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix):
-    input = client.get_object(
-        Bucket=input_bucket,
-        Key=input_key
-    )["Body"]
+    input = client.get_object(Bucket=input_bucket, Key=input_key)["Body"]
 
     output = BytesIO()
     with tarfile.open(fileobj=input, mode="r|") as tarball:
@@ -29,7 +26,9 @@ def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix)
         Body=output,
     )
 
+
 CLIENT = boto3.client("s3")
+
 
 def lambda_handler(event, _context):
     for record in event["Records"]:
