@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
 struct Output {
+    archive: String,
     filename: String,
     size: u64,
 }
@@ -21,6 +22,7 @@ fn index_tarball(path: &Path) -> Result<()> {
     for entry in tarball.entries()? {
         let entry = entry?;
         let row = serde_json::to_string(&Output {
+            archive: path.to_str().context("non-utf8 path")?.into(),
             filename: entry.path()?.to_str().context("non-utf8 path")?.into(),
             size: entry.size(),
         })?;

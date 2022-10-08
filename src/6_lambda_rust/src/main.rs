@@ -1,9 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as AnyhowContext, Result};
+use async_trait::async_trait;
 use aws_sdk_s3 as s3;
+use cobalt_aws::lambda::{run_message_handler, Error, LambdaContext};
 use futures::prelude::*;
 use serde::Serialize;
 use std::io::prelude::*;
-
+use std::sync::Arc;
 
 #[derive(Serialize)]
 struct Output {
@@ -63,18 +65,46 @@ async fn index_tarball(
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let config = aws_config::load_from_env().await;
-    let client = s3::Client::new(&config);
-    for ln in std::io::stdin().lines() {
-        index_tarball(
-            &client,
-            "rfkelly-rust-python-lambda-demo",
-            ln?.trim(),
-            "rfkelly-rust-python-lambda-demo",
-            "output",
-        )
-        .await?;
+async fn main() -> Result<(), Error> {
+    run_message_handler(message_handler).await
+}
+
+#[derive(Debug, clap::Parser)]
+struct Config {}
+
+#[derive(Debug)]
+struct Context {
+    client: s3::Client,
+    input_bucket: String,
+    output_bucket: String,
+    output_prefix: String,
+}
+
+#[async_trait]
+impl LambdaContext<Config> for Context {
+    /// Initialise a shared context object from which will be
+    /// passed to all instances of the message handler.
+    async fn from_env(_config: &Config) -> Result<Context> {
+        let config = aws_config::load_from_env().await;
+        let client = s3::Client::new(&config);
+        Ok(Context {
+            client,
+            input_bucket: "rfkelly-rust-python-lambda-demo".into(),
+            output_bucket: "rfkelly-rust-python-lambda-demo".into(),
+            output_prefix: "output".into(),
+        })
     }
+}
+
+async fn message_handler(message: String, context: Arc<Context>) -> Result<()> {
+    index_tarball(
+        &context.client,
+        &context.input_bucket,
+        &message,
+        &context.output_bucket,
+        &context.output_prefix,
+    )
+    .await?;
+
     Ok(())
 }

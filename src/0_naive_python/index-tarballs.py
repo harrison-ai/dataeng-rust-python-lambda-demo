@@ -9,6 +9,7 @@ def index_tarball(path):
         with open(outfile, "w") as output:
             for member in tarball:
                 row = json.dumps({
+                    "archive": path,
                     "filename": member.name,
                     "size": member.size
                 })

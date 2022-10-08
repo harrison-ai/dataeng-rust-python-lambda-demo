@@ -3,4 +3,5 @@ members = [
     "src/1_naive_rust",
     "src/2_faster_rust",
     "src/4_s3_rust",
+    "src/6_lambda_rust",
 ]
