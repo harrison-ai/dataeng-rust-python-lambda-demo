@@ -27,7 +27,7 @@ fn index_tarball(path: &Path) -> Result<()> {
             filename: entry.path()?.to_str().context("non-utf8 path")?,
             size: entry.size(),
         })?;
-        writeln!(output, "")?;
+        writeln!(output)?;
     }
     Ok(())
 }

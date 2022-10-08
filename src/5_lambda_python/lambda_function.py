@@ -15,7 +15,9 @@ def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix)
     output = BytesIO()
     with tarfile.open(fileobj=input, mode="r|") as tarball:
         for member in tarball:
-            row = json.dumps({"filename": member.name, "size": member.size})
+            row = json.dumps(
+                {"archive": input_key, "filename": member.name, "size": member.size}
+            )
             output.write(row.encode("utf-8"))
             output.write(b"\n")
 

@@ -31,22 +31,19 @@ async fn index_tarball(
             .into_async_read(),
     );
 
-    let output = tarball
-        .entries()?
-        .map_err(anyhow::Error::from)
-        .try_fold(Vec::new(), |mut output, entry| async move {
-            serde_json::to_writer(
-                &mut output,
-                &Output {
-                    archive: input_key,
-                    filename: entry.path()?.to_str().context("non-utf8 path")?,
-                    size: entry.header().size()?,
-                },
-            )?;
-            writeln!(output, "")?;
-            Ok(output)
-        })
-        .await?;
+    let mut output = Vec::new();
+    let mut entries = tarball.entries()?;
+    while let Some(entry) = entries.try_next().await? {
+        serde_json::to_writer(
+            &mut output,
+            &Output {
+                archive: input_key,
+                filename: entry.path()?.to_str().context("non-utf8 path")?,
+                size: entry.header().size()?,
+            },
+        )?;
+        writeln!(output)?;
+    }
 
     let archive_name = input_key
         .rsplit_once('/')
