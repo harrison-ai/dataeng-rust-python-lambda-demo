@@ -1,25 +1,34 @@
-import os
+import sys
 import json
 import tarfile
+from io import BytesIO
+
 import boto3
 
 
 def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix):
-    output_key = f"{output_prefix}/partition={input_key[:2]}/input_key.jsonl"
-    outfile = os.path.join("output", os.path.basename(input_key) + ".jsonl")
-    input = client.get_object(Bucket=input_bucket, Key=input_key)["Body"]
+    input = client.get_object(
+        Bucket=input_bucket,
+        Key=input_key
+    )["Body"]
+
+    output = BytesIO()
     with tarfile.open(fileobj=input, mode="r|") as tarball:
-        with open(outfile, "w") as output:
-            for member in tarball:
-                row = json.dumps({"filename": member.name, "size": member.size})
-                output.write(row)
-                output.write("\n")
+        for member in tarball:
+            row = json.dumps({"filename": member.name, "size": member.size})
+            output.write(row.encode("utf-8"))
+            output.write(b"\n")
+
+    output.seek(0)
+    client.put_object(
+        Bucket=output_bucket,
+        # FIXME: need basename
+        Key=f"{output_prefix}/partition={input_key[:2]}/{input_key}.jsonl",
+        Body=output,
+    )
 
 
 if __name__ == "__main__":
-    import sys
-    import boto3
-
     client = boto3.client("s3")
     for ln in sys.stdin:
         index_tarball(

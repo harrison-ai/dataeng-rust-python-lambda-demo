@@ -1,11 +1,9 @@
 use anyhow::{Context, Result};
 use aws_sdk_s3 as s3;
 use futures::prelude::*;
+use s3::types::ByteStream;
 use serde::Serialize;
-use std::fs::File;
 use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
-use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
 struct Output {
@@ -25,6 +23,22 @@ async fn get_object(client: &s3::Client, bucket: &str, key: &str) -> Result<impl
         .into_async_read())
 }
 
+async fn put_object(
+    client: &s3::Client,
+    bucket: &str,
+    key: &str,
+    body: impl Into<ByteStream>,
+) -> Result<()> {
+    client
+        .put_object()
+        .bucket(bucket)
+        .key(key)
+        .body(body.into())
+        .send()
+        .await?;
+    Ok(())
+}
+
 async fn index_tarball(
     client: &s3::Client,
     input_bucket: &str,
@@ -34,19 +48,10 @@ async fn index_tarball(
 ) -> Result<()> {
     let tarball = async_tar::Archive::new(get_object(client, input_bucket, input_key).await?);
 
-    let mut output_path = PathBuf::from("output");
-    output_path.push(
-        Path::new(input_key)
-            .file_name()
-            .context("missing filename")?,
-    );
-    output_path.set_extension("jsonl");
-    let output = &mut BufWriter::new(File::create(&output_path)?);
-
-    tarball
+    let output = tarball
         .entries()?
         .map_err(anyhow::Error::from)
-        .try_fold(output, |mut output, entry| async move {
+        .try_fold(Vec::new(), |mut output, entry| async move {
             serde_json::to_writer(
                 &mut output,
                 &Output {
@@ -58,6 +63,18 @@ async fn index_tarball(
             Ok(output)
         })
         .await?;
+
+    put_object(
+        client,
+        output_bucket,
+        &format!(
+            // FIXME: need basename
+            "{output_prefix}/partition={}/{input_key}.jsonl",
+            &input_key[..2]
+        ),
+        output,
+    )
+    .await?;
 
     Ok(())
 }
