@@ -8,8 +8,9 @@ use std::io::prelude::*;
 use std::sync::Arc;
 
 #[derive(Serialize)]
-struct Output {
-    filename: String,
+struct Output<'a> {
+    archive: &'a str,
+    filename: &'a str,
     size: u64,
 }
 
@@ -39,7 +40,8 @@ async fn index_tarball(
             serde_json::to_writer(
                 &mut output,
                 &Output {
-                    filename: entry.path()?.to_str().context("non-utf8 path")?.into(),
+                    archive: input_key,
+                    filename: entry.path()?.to_str().context("non-utf8 path")?,
                     size: entry.header().size()?,
                 },
             )?;
@@ -48,15 +50,14 @@ async fn index_tarball(
         })
         .await?;
 
-    // FIXME: need basename
-    let output_key = format!(
-        "{output_prefix}/partition={}/{input_key}.jsonl",
-        &input_key[..2]
-    );
+    let archive_name = input_key
+        .rsplit_once('/')
+        .map(|(_, basename)| basename)
+        .unwrap_or(input_key);
     client
         .put_object()
         .bucket(output_bucket)
-        .key(output_key)
+        .key(format!("{output_prefix}/{archive_name}.jsonl",))
         .body(output.into())
         .send()
         .await?;

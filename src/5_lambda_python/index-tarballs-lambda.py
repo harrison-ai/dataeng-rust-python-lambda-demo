@@ -20,20 +20,21 @@ def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix)
             output.write(b"\n")
 
     output.seek(0)
+    archive_name = input_key.rsplit("/", 1)[-1]
     client.put_object(
         Bucket=output_bucket,
-        # FIXME: need basename
-        Key=f"{output_prefix}/partition={input_key[:2]}/{input_key}.jsonl",
+        Key=f"{output_prefix}/{archive_name}.jsonl",
         Body=output,
     )
 
-def handler(event, _context):
-    client = boto3.client("s3")
+CLIENT = boto3.client("s3")
+
+def lambda_handler(event, _context):
     for record in event["Records"]:
         index_tarball(
-            client,
+            CLIENT,
             "rfkelly-rust-python-lambda-demo",
-            record["body"],
+            json.loads(record["body"]),
             "rfkelly-rust-python-lambda-demo",
             "output",
         )
