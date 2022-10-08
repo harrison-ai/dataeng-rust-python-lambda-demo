@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
             "rfkelly-rust-python-lambda-demo",
             ln?.trim(),
             "rfkelly-rust-python-lambda-demo",
-            "output",
+            "output/rs",
         )
         .await?;
     }

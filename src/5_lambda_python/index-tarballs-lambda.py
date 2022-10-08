@@ -36,5 +36,5 @@ def lambda_handler(event, _context):
             "rfkelly-rust-python-lambda-demo",
             json.loads(record["body"]),
             "rfkelly-rust-python-lambda-demo",
-            "output",
+            "output/py",
         )

@@ -35,5 +35,5 @@ if __name__ == "__main__":
             "rfkelly-rust-python-lambda-demo",
             ln.strip(),
             "rfkelly-rust-python-lambda-demo",
-            "output",
+            "output/py",
         )

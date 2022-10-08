@@ -92,7 +92,7 @@ impl LambdaContext<Config> for Context {
             client,
             input_bucket: "rfkelly-rust-python-lambda-demo".into(),
             output_bucket: "rfkelly-rust-python-lambda-demo".into(),
-            output_prefix: "output".into(),
+            output_prefix: "output/rs".into(),
         })
     }
 }
