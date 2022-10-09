@@ -3,13 +3,12 @@ import os
 import json
 import tarfile
 
-def index_tarball(path):
-    outfile = os.path.join("output", os.path.basename(path) + ".jsonl")
-    with tarfile.open(path) as tarball:
-        with open(outfile, "w") as output:
+def index_tarball(input_path, output_path):
+    with tarfile.open(input_path) as tarball:
+        with open(output_path, "w") as output:
             for member in tarball:
                 row = json.dumps({
-                    "archive": path,
+                    "archive": input_path,
                     "filename": member.name,
                     "size": member.size
                 })
@@ -17,6 +16,7 @@ def index_tarball(path):
                 output.write("\n")
 
 if __name__ == "__main__":
-    import sys
-    for ln in sys.stdin:
-        index_tarball(ln.strip())
+    for nm in os.listdir("input"):
+        input_path = os.path.join("input", nm)
+        output_path = os.path.join("output", os.path.basename(input_path) + ".jsonl")
+        index_tarball(input_path, output_path)

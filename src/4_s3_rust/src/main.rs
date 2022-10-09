@@ -4,9 +4,8 @@ use futures::prelude::*;
 use serde::Serialize;
 use std::io::prelude::*;
 
-
 #[derive(Serialize)]
-struct Output<'a> {
+struct IndexEntry<'a> {
     archive: &'a str,
     filename: &'a str,
     size: u64,
@@ -14,15 +13,14 @@ struct Output<'a> {
 
 async fn index_tarball(
     client: &s3::Client,
-    input_bucket: &str,
+    bucket: &str,
     input_key: &str,
-    output_bucket: &str,
-    output_prefix: &str,
+    output_key: &str,
 ) -> Result<()> {
     let tarball = async_tar::Archive::new(
         client
             .get_object()
-            .bucket(input_bucket)
+            .bucket(bucket)
             .key(input_key)
             .send()
             .await?
@@ -36,7 +34,7 @@ async fn index_tarball(
     while let Some(entry) = entries.try_next().await? {
         serde_json::to_writer(
             &mut output,
-            &Output {
+            &IndexEntry {
                 archive: input_key,
                 filename: entry.path()?.to_str().context("non-utf8 path")?,
                 size: entry.header().size()?,
@@ -45,14 +43,10 @@ async fn index_tarball(
         writeln!(output)?;
     }
 
-    let archive_name = input_key
-        .rsplit_once('/')
-        .map(|(_, basename)| basename)
-        .unwrap_or(input_key);
     client
         .put_object()
-        .bucket(output_bucket)
-        .key(format!("{output_prefix}/{archive_name}.jsonl",))
+        .bucket(bucket)
+        .key(output_key)
         .body(output.into())
         .send()
         .await?;
@@ -65,12 +59,18 @@ async fn main() -> Result<()> {
     let config = aws_config::load_from_env().await;
     let client = s3::Client::new(&config);
     for ln in std::io::stdin().lines() {
+        let ln = ln?;
+        let input_key = ln.trim();
+        let archive_name = input_key
+            .rsplit_once('/')
+            .map(|(_, basename)| basename)
+            .unwrap_or(input_key);
+        let output_key = format!("output/rs/{archive_name}.jsonl",);
         index_tarball(
             &client,
             "rfkelly-rust-python-lambda-demo",
-            ln?.trim(),
-            "rfkelly-rust-python-lambda-demo",
-            "output/rs",
+            input_key,
+            &output_key,
         )
         .await?;
     }

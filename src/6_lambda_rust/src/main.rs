@@ -8,7 +8,7 @@ use std::io::prelude::*;
 use std::sync::Arc;
 
 #[derive(Serialize)]
-struct Output<'a> {
+struct IndexEntry<'a> {
     archive: &'a str,
     filename: &'a str,
     size: u64,
@@ -16,15 +16,14 @@ struct Output<'a> {
 
 async fn index_tarball(
     client: &s3::Client,
-    input_bucket: &str,
+    bucket: &str,
     input_key: &str,
-    output_bucket: &str,
-    output_prefix: &str,
+    output_key: &str,
 ) -> Result<()> {
     let tarball = async_tar::Archive::new(
         client
             .get_object()
-            .bucket(input_bucket)
+            .bucket(bucket)
             .key(input_key)
             .send()
             .await?
@@ -38,7 +37,7 @@ async fn index_tarball(
     while let Some(entry) = entries.try_next().await? {
         serde_json::to_writer(
             &mut output,
-            &Output {
+            &IndexEntry {
                 archive: input_key,
                 filename: entry.path()?.to_str().context("non-utf8 path")?,
                 size: entry.header().size()?,
@@ -47,14 +46,10 @@ async fn index_tarball(
         writeln!(output)?;
     }
 
-    let archive_name = input_key
-        .rsplit_once('/')
-        .map(|(_, basename)| basename)
-        .unwrap_or(input_key);
     client
         .put_object()
-        .bucket(output_bucket)
-        .key(format!("{output_prefix}/{archive_name}.jsonl",))
+        .bucket(bucket)
+        .key(output_key)
         .body(output.into())
         .send()
         .await?;
@@ -73,34 +68,33 @@ struct Config {}
 #[derive(Debug)]
 struct Context {
     client: s3::Client,
-    input_bucket: String,
-    output_bucket: String,
-    output_prefix: String,
+    bucket: String,
 }
 
 #[async_trait]
 impl LambdaContext<Config> for Context {
-    /// Initialise a shared context object from which will be
-    /// passed to all instances of the message handler.
     async fn from_env(_config: &Config) -> Result<Context> {
         let config = aws_config::load_from_env().await;
         let client = s3::Client::new(&config);
         Ok(Context {
             client,
-            input_bucket: "rfkelly-rust-python-lambda-demo".into(),
-            output_bucket: "rfkelly-rust-python-lambda-demo".into(),
-            output_prefix: "output/rs".into(),
+            bucket: "rfkelly-rust-python-lambda-demo".into(),
         })
     }
 }
 
 async fn message_handler(message: String, context: Arc<Context>) -> Result<()> {
+    let input_key = &message;
+    let archive_name = input_key
+        .rsplit_once('/')
+        .map(|(_, basename)| basename)
+        .unwrap_or(input_key);
+    let output_key = format!("output/rs/{archive_name}.jsonl",);
     index_tarball(
         &context.client,
-        &context.input_bucket,
-        &message,
-        &context.output_bucket,
-        &context.output_prefix,
+        &context.bucket,
+        input_key,
+        &output_key,
     )
     .await?;
 

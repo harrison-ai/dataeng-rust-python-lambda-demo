@@ -6,8 +6,8 @@ from io import BytesIO
 import boto3
 
 
-def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix):
-    input = client.get_object(Bucket=input_bucket, Key=input_key)["Body"]
+def index_tarball(s3client, bucket, input_key, output_key):
+    input = s3client.get_object(Bucket=bucket, Key=input_key)["Body"]
 
     output = BytesIO()
     with tarfile.open(fileobj=input, mode="r|") as tarball:
@@ -19,10 +19,9 @@ def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix)
             output.write(b"\n")
 
     output.seek(0)
-    archive_name = input_key.rsplit("/", 1)[-1]
-    client.put_object(
-        Bucket=output_bucket,
-        Key=f"{output_prefix}/{archive_name}.jsonl",
+    s3client.put_object(
+        Bucket=bucket,
+        Key=output_key,
         Body=output,
     )
 
@@ -30,10 +29,7 @@ def index_tarball(client, input_bucket, input_key, output_bucket, output_prefix)
 if __name__ == "__main__":
     client = boto3.client("s3")
     for ln in sys.stdin:
-        index_tarball(
-            client,
-            "rfkelly-rust-python-lambda-demo",
-            ln.strip(),
-            "rfkelly-rust-python-lambda-demo",
-            "output/py",
-        )
+        input_key = ln.strip()
+        archive_name = input_key.rsplit("/", 1)[-1]
+        output_key = f"output/py/{archive_name}.jsonl"
+        index_tarball(client, "rfkelly-rust-python-lambda-demo", input_key, output_key)
